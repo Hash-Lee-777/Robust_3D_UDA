@@ -1,0 +1,99 @@
+# === Top-level folders to ignore ===
+/.vscode/
+/data/
+/experiment/
+/experiments/
+/pretrain_models/
+/pretrained_models/
+/log/
+/wandb/
+
+# === Python caches & common junk ===
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pkl
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Build/Packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Logs & temp
+*.log
+*.tmp
+
+# === Tests & coverage ===
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# === Native build artifacts ===
+*.so
+*.dylib
+*.dll
+
+# === Environments & tools ===
+.python-version
+.conda/
+
+# === ML/experiments artifacts (top-level) ===
+/runs/
+/lightning_logs/
+/checkpoints/
+/outputs/
+/output/
+/results/
+/result/
+/models/
+/artifacts/
+/figures/
+/reports/
+/logs/
+
+# Common ML weight files
+*.pt
+*.pth
+*.ckpt
+*.onnx
+
+# === Secrets & env files ===
+.env
+.env.*
+*.secret
+*.key
+
+# === Caches & temp ===
+.cache/
+cache/
+tmp/
+temp/
+nohup.out
+
+# === IDEs ===
+.idea/
+.spyproject/
+*.swp
+*.swo
+
+# === Docs ===
+docs/_build/

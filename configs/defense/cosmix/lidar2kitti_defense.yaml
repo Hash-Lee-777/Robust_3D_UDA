@@ -1,0 +1,116 @@
+attack:
+  adv_pcd_path: "experiments/pipeline/advSample/attackedLidar_Kitti100"
+  adv_sample_rate: 0.
+  attack_prob: 0.
+  gt: false
+
+model:
+  name: 'MinkUNet34'
+  in_feat_size: 1
+  out_classes: 19
+
+defense:
+  cfg: 'configs/defense/cosmix/decoder/2048/vrcnet.yaml'
+  # split_path: 'configs/defense/finetune/selected_split/split.pth'
+  split_path:
+  attack_prob: 1.
+  decode_flag: true
+  conf_update: false
+  update_pts: 2048
+  gt_scene: 256
+  gt_scene_pts: 2048
+
+source_dataset:
+  version: 'full'
+  name: 'SynLiDAR'
+  dataset_path: 'data/SynLiDAR/sequences'
+  mapping_path: '_resources/synlidar_semantickitti.yaml'
+  weights_path: '_weights/synlidar2semantickitti_correct.npy'
+  target: null
+  voxel_size: 0.05
+  num_pts: 80000
+  ignore_label: -1
+  augment_data: false
+
+target_dataset:
+  version: 'full'
+  name: 'SemanticKITTI'
+  dataset_path: 'data/SemanticKITTI/data/sequences'
+  mapping_path: '_resources/semantic-kitti.yaml'
+  target: null
+  voxel_size: 0.05
+  num_pts: 80000
+  ignore_label: -1
+  augment_data: false
+
+masked_dataset:
+  augment_data: true
+  augment_mask_data: true
+  remove_overlap: false
+
+pipeline:
+  epochs: 10
+  steps: null
+  # gpus: [0,1,2,3]
+  gpus: [0, 1]
+  precision: 32
+  seed: 1234
+  save_dir: '/home/chenjj/workspace/vscode/UDA/share/experiments/pipeline/cosmix/clean'
+
+  dataloader:
+    train_batch_size: 2
+    val_batch_size: 8
+    num_workers: 24
+
+  optimizer:
+    name: 'SGD'
+    lr: 0.001
+
+  scheduler:
+    name: null
+
+  lightning:
+    check_val_every_n_epoch: 1
+    clear_cache_int: 1
+    resume_checkpoint: null
+    val_check_interval: 1.0
+    num_sanity_val_steps: 2
+
+  wandb:
+    run_name: 'Cosmix-defense-Adaptation-confidence'
+    project_name: 'ATTACK_COSMIX_SDIM'
+    entity_name: 'sdim2chenjj'
+    offline: true
+
+adaptation:
+  student_checkpoint: 'experiments/pretrained/synlidar/semantickitti/2024_07_21_13:25_LIDAR2KITTI_WARMUP_AdvTrain_100_Combined/checkpoints/epoch=59-step=74399.ckpt'
+  teacher_checkpoint: 'experiments/pretrained/synlidar/semantickitti/2024_07_21_13:25_LIDAR2KITTI_WARMUP_AdvTrain_100_Combined/checkpoints/epoch=59-step=74399.ckpt'
+  filtering: 'confidence'
+  adaptive_weight: false
+  oracle_rate: 0.0
+  shuffle_batches: false
+  compositional: false
+  source_filtering: false
+  propagation: false
+  propagation_size: 0
+  weighted_sampling: true
+  self_paced: false
+  is_mix3d: false
+  is_mix3d_pseudo: false
+  selection_perc: 1.0
+  remove_class: null
+  target_confidence_th: 0.90
+  lambda_weight: 0.1
+
+  losses:
+    source_criterion: 'SoftDICELoss'
+    target_criterion: 'SoftDICELoss'
+    other_criterion: null
+    source_weight: 1.0
+    target_weight: 1.0
+    other_weight: 0.
+
+  momentum:
+    base_tau: 0.9
+    final_tau: 0.9
+    update_every: 500

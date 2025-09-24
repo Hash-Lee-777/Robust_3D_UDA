@@ -1,0 +1,82 @@
+models:
+  Encoder:
+    name: 'MinkUNet34Encoder'
+    # name: 'ConvEncoder'
+    in_feat_size: 1
+    out_classes: 19
+    out_feature: 96
+    resume_path: null
+  Decoder:
+    name: 'EnhancedConvDecoder'
+    in_feat_size: 96
+    out_classes: 3
+    resume_path: null
+log:
+  name: 'defense.log'
+  save_dir: 'log/defense/noaug/train_encoder'
+
+defense:
+  sampling_rate: 0.05
+  noise: 0.25
+  split_dir: 'test/select_split'
+  split_name: 'split.pth'
+  save_dir: 'test/_vis/chamfer/1024_512_512_96/enhance/noaug/train_encoder'
+  reg_eta: 0.
+  chamfer_eta: 1.
+  repulsion_eta: 0.
+  chamfer_points: 4096
+  # chamfer_points: 8192
+  # chamfer_points: 12288
+  repulsion_radius: 0.35
+  kl_eta: 0.
+  aug: false
+  train_encoder: true
+
+dataset:
+  version: 'full'
+  name: 'SynLiDAR'
+  dataset_path: 'data/SynLiDAR/sequences'
+  mapping_path: '_resources/synlidar_semantickitti.yaml'
+  target: 'SemanticKITTI'
+  voxel_size: 0.05
+  num_pts: 80000
+  # num_pts: 4096
+  ignore_label: -1
+  augment_data: false
+
+pipeline:
+  epochs: 20
+  steps: null
+  gpus: [0]
+  precision: 32
+  loss: 'SoftDICELoss'
+  seed: 1234
+  save_dir: 'experiments/defense/synlidar/semantickitti'
+  validate_target: true
+
+  dataloader:
+    batch_size: 1
+    num_workers: 16
+
+  optimizer:
+    name: 'Adam'
+    # name: 'SGD'
+    lr: 0.001
+
+  scheduler:
+    # name: 'CosineAnnealingLR'
+    name: 'ExponentialLR'
+    # name: 'CyclicLR'
+
+  lightning:
+    check_val_every_n_epoch: 1
+    clear_cache_int: 1
+    resume_checkpoint: null
+    val_check_interval: 1.0
+    num_sanity_val_steps: 2
+
+  wandb:
+    run_name: 'SOURCE-DEFENSE-LIDAR2KITTI-ChamferUpdate'
+    project_name: 'ATTACK_COSMIX_SDIM'
+    entity_name: 'sdim2chenjj'
+    offline: true

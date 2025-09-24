@@ -1,0 +1,60 @@
+model:
+  resume_path: null
+  name: 'MinkUNet34'
+  in_feat_size: 1
+  out_classes: 19
+
+dataset:
+  version: 'full'
+  name: 'SynLiDAR'
+  dataset_path: 'data/SynLiDAR/sequences'
+  mapping_path: '_resources/synlidar_semantickitti.yaml'
+  target: 'SemanticKITTI'
+  voxel_size: 0.05
+  num_pts: 80000
+  ignore_label: -1
+  augment_data: true
+
+attacked:
+  prob: 1.
+  adv_train_path: 'experiments/SAVEDIR/attackedLidar_Kitti100'
+  adv_validation_path: 'experiments/SAVEDIR/attackedLidar_Kitti100VAL'
+  attacked_train: true
+  attacked_validation: true
+  save_dir: 'experiments/adv_pretrained_models/train_val_attacked'
+  
+
+pipeline:
+  epochs: 60
+  steps: null
+  gpus: [0,1]
+  precision: 32
+  loss: 'SoftDICELoss'
+  seed: 1234
+  save_dir: 'experiments/adv_pretrained/synlidar/semantickitti'
+  validate_target: true
+
+  dataloader:
+    batch_size: 16
+    num_workers: 16
+
+  optimizer:
+    name: 'SGD'
+    lr: 0.01
+
+  scheduler:
+    name: 'ExponentialLR'
+
+  lightning:
+    check_val_every_n_epoch: 5
+    clear_cache_int: 1
+    resume_checkpoint: null
+    val_check_interval: 1.0
+    num_sanity_val_steps: 2
+
+
+  wandb:
+    run_name: 'LIDAR2KITTI_WARMUP_ATTACKED_SOURCE_VALIDATION_100'
+    project_name: 'ATTACK_COSMIX_SDIM'
+    entity_name: 'sdim2chenjj'
+    offline: true
