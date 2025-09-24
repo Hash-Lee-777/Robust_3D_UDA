@@ -22,23 +22,23 @@ from collections import namedtuple
 
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:128"
 
-# 定义命名元组
+# Define namedtuples
 SPCDParams = namedtuple('SPCDParams', ['fine_points', 'coords_idx', 'labels_idx', 'conf_idx', 'feats_idx'])
 TPCDParams = namedtuple('TPCDParams',['fine_points','coords_idx','labels_idx','pseudo_idx','conf_idx','feats_idx'])
 BatchData = namedtuple('BatchData', ['coords', 'labels', 'features', 'pseudo_labels'])
 
-# 采样 ['FPS','SRS']
+# Sampling ['FPS','SRS']
 def farthest_point_sampling(points, num_samples):
     """
-    最远点采样方法
-    
-    参数:
-    - points: np.ndarray, 形状为 (N, 3) 的点云数据
-    - num_samples: int, 采样点数
-    
-    返回:
-    - sampled_points: np.ndarray, 形状为 (num_samples, 3) 的采样点
-    - sampled_indices: np.ndarray, 采样点的索引
+    Farthest Point Sampling (FPS)
+
+    Args:
+    - points: torch.Tensor, shape (N, 3) point cloud
+    - num_samples: int, number of points to sample
+
+    Returns:
+    - sampled_points: torch.Tensor, shape (num_samples, 3)
+    - sampled_indices: torch.Tensor, indices of sampled points
     """
     device = points.device
     points = points.detach().cpu().numpy()
@@ -46,12 +46,12 @@ def farthest_point_sampling(points, num_samples):
     sampled_indices = np.zeros(num_samples, dtype=int)
     sampled_points = np.zeros((num_samples, 3))
     
-    # 随机选择第一个点
+    # Randomly select the first point
     farthest_idx = np.random.randint(0, N)
     sampled_indices[0] = farthest_idx
     sampled_points[0] = points[farthest_idx]
     
-    # 记录每个点到已选择的最近点的距离
+    # Track each point's distance to the nearest selected point
     distances = np.linalg.norm(points - points[farthest_idx], axis=1)
     
     for i in range(1, num_samples):
@@ -59,7 +59,7 @@ def farthest_point_sampling(points, num_samples):
         sampled_indices[i] = farthest_idx
         sampled_points[i] = points[farthest_idx]
         
-        # 更新每个点到已选择的最近点的距离
+        # Update distances to the nearest selected point
         new_distances = np.linalg.norm(points - points[farthest_idx], axis=1)
         distances = np.minimum(distances, new_distances)
     
@@ -67,15 +67,15 @@ def farthest_point_sampling(points, num_samples):
 
 def simple_random_sampling(points, num_samples):
     """
-    简单随机采样方法
-    
-    参数:
-    - points: torch.Tensor, 形状为 (N, 3) 的点云数据
-    - num_samples: int, 采样点数
-    
-    返回:
-    - sampled_points: torch.Tensor, 形状为 (num_samples, 3) 的采样点
-    - sampled_indices: torch.Tensor, 采样点的索引
+    Simple random sampling
+
+    Args:
+    - points: torch.Tensor, shape (N, 3) point cloud
+    - num_samples: int, number of points to sample
+
+    Returns:
+    - sampled_points: torch.Tensor, shape (num_samples, 3)
+    - sampled_indices: torch.Tensor, indices of sampled points
     """
     device = points.device
     N, _ = points.shape
@@ -236,7 +236,7 @@ class SimMaskedAdaptationDefense(pl.core.LightningModule):
         """Resets the step counter at the beginning of training."""
         self.last_step = 0
 
-    # 随机选择点，如果数目不够则补充
+    # Randomly select points; if not enough, pad with extra sampled indices
     def random_sample(self, points, sub_num):
         """
         :param points: input points of shape [N, 3]
@@ -292,7 +292,7 @@ class SimMaskedAdaptationDefense(pl.core.LightningModule):
 
         target_order = np.arange(batch_size)
 
-        # 对每个batch的数据进行操作,对于每个batch的数据添加mix操作后的数据进行增强
+        # For each batch item, add mixed data for augmentation
         for b in range(batch_size):
             source_b_idx = batch_source_pts[:, 0] == b
             target_b = target_order[b]
@@ -433,13 +433,13 @@ class SimMaskedAdaptationDefense(pl.core.LightningModule):
         return new_batch
 
     def count_cls_num_list(self,labels,num_classes):
-        # 使用 bincount 来计算每个类别的数量
+        # Compute per-class counts using torch.bincount
         cls_counts = torch.bincount(labels+1, minlength=num_classes)
-        # 将 bincount 的结果复制到 num_cls_list 中
+        # Copy bincount results into num_cls_list
         num_cls_list = (cls_counts+1).tolist()
         return num_cls_list
 
-    # 伪标签则选择所有类别,真实标签根据权重选择类别
+    # For pseudo labels select all classes; for true labels use weighted sampling if enabled
     def sample_classes(self, origin_classes, num_classes, is_pseudo=False):
 
         if not is_pseudo:
@@ -544,9 +544,9 @@ class SimMaskedAdaptationDefense(pl.core.LightningModule):
 
         return dest_pts, dest_labels, dest_features, mask.astype(bool)
 
-        # 解码source data和target data用于数据增强
+        # Decode source and target point clouds for augmentation
 
-    # 置信度更新标签更新和利用解码器进行数据增强
+    # Update labels based on confidence and augment using decoder
     def decode_batch(
         self, 
         batch, 
@@ -555,7 +555,7 @@ class SimMaskedAdaptationDefense(pl.core.LightningModule):
         decode_coords=True,
         update_label=False,
     ):  
-        # 同为False,保持原有操作
+        # If decode_coords is False, keep original batch
         if not decode_coords:
             return batch
         
@@ -574,7 +574,7 @@ class SimMaskedAdaptationDefense(pl.core.LightningModule):
             "pseudo_labels": [],
         }
         
-        # 使用解码器解码点云, 返回(source_fine_points,target_fine_points),返回解码器解码点云
+        # Use decoder to reconstruct point clouds; returns (source_fine_points, target_fine_points)
         def decode_single_batch(source_coords_decoded, target_coords_decoded):
             decode_loss = None
             
@@ -610,7 +610,7 @@ class SimMaskedAdaptationDefense(pl.core.LightningModule):
                 decode_loss = source_net_loss + target_net_loss
             return source_fine_points, target_fine_points, decode_loss
 
-        # 根据置信度更新点云标签
+        # Update point labels according to confidence
         def update_label_single_batch(source_params, target_params):
           
             source_updated_coords, source_updated_labels, source_updated_nums, source_updated_fixed_nums = self.update_label(
@@ -663,7 +663,7 @@ class SimMaskedAdaptationDefense(pl.core.LightningModule):
             target_features_idx = batch["target_features"][target_b_idx].to(self.device)
             target_pseudo_idx = batch["pseudo_labels"][target_b_idx.cpu()].to(self.device)
             
-            # 计算当前模型的特征输出
+            # Compute feature outputs of the current model
             with torch.no_grad():
                 with amp.autocast():
                     source_stensor = ME.SparseTensor(
@@ -686,9 +686,9 @@ class SimMaskedAdaptationDefense(pl.core.LightningModule):
             target_coords_decoded = target_coords_idx[..., 1:].float() * self.training_dataset.voxel_size
             target_coords_decoded, target_srs_idx = simple_random_sampling(target_coords_decoded, num_samples=num_pts)
             
-            # 解码恢复后点云
+            # Decode reconstructed point clouds
             source_fine_points, target_fine_points, decode_loss = decode_single_batch(source_coords_decoded, target_coords_decoded)
-            # 对点云进行标签更新
+            # Update labels of the point clouds
             source_params = SPCDParams(source_fine_points, source_coords_idx, source_labels_idx, source_conf_idx, source_features_idx)
             target_params = TPCDParams(target_fine_points, target_coords_idx, target_labels_idx, target_pseudo_idx, target_conf_idx, target_features_idx)
             updated_source_params, updated_target_params = update_label_single_batch(source_params, target_params)

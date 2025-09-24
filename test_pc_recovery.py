@@ -1,7 +1,7 @@
-# 尝试根据点云几何特征，优化点云
-# 噪声点云 N*3
-# 原始点云 N*3
-# 优化点云 N*3
+# Attempt to optimize point clouds based on geometric features
+# Noisy point cloud N*3
+# Clean/original point cloud N*3
+# Optimized/recovered point cloud N*3
 import torch.optim
 from utils.models import ConvDecoderUpdate,MinkUNet34Encoder
 from defense_tools import process_noise_decoder,utils_tools_mappings,loss_dict_mappings
@@ -24,7 +24,7 @@ import open3d as o3d
 
 os.environ['OMP_NUM_THREADS'] = '16'
 
-# 定义项目设置用于记录
+# Define project settings for logging
 recovery_setting_dict = {
     'save_dir': 'test/_vis/1024_512_512_256_chamfer_noaug',
     'reg_eta':0.,
@@ -47,32 +47,32 @@ normalize_pcd_tensor = utils_tools_mappings['normalize_pcd_tensor']
 chamfer_distance_batch = loss_dict_mappings['chamfer_distance_batch']
 kl_divergence_loss = loss_dict_mappings['kl_divergence_loss']
 get_decoder = decoder_tools['get_decoder']
-# 将点云分为batch [B,N,3] N对应一个batch中点的数量
+# Split point cloud into batches [B,N,3], where N is points per batch
 batch_point_clouds = utils_tools_mappings['batch_point_clouds']
 
 def test_pca_2d(output_feature, desc: str = 'desc',c=None):
-    # 使用 PCA 将数据降维至 2D
+    # Use PCA to reduce features to 2D
     pca = PCA(n_components=2)
     if isinstance(output_feature,torch.Tensor):
         output_feature = output_feature.detach().cpu().numpy()
     reduced_data_pca = pca.fit_transform(output_feature)
 
-    # 创建2D图
+    # Create 2D plot
     fig = plt.figure()
     ax = fig.add_subplot(111)  # 2D图，不需要 'projection=3d'
 
-    # 绘制2D散点图
+    # Draw 2D scatter plot
     if c is None:
         ax.scatter(reduced_data_pca[:, 0], reduced_data_pca[:, 1], alpha=0.7, s=4)
     else:
         ax.scatter(reduced_data_pca[:, 0], reduced_data_pca[:, 1], alpha=0.7, s=4,c=c)
 
-    # 设置轴标签和标题
+    # Set axis labels and title
     ax.set_xlabel("PCA Component 1")
     ax.set_ylabel("PCA Component 2")
     ax.set_title("2D PCA")
 
-    # 保存图像到指定路径
+    # Save the figure
     plt.savefig(desc)
 
     return
@@ -82,14 +82,14 @@ def test_pca_3d(output_feature,desc:str='desc',c=None):
     if isinstance(output_feature,torch.Tensor):
         output_feature = output_feature.detach().cpu().numpy()
     reduced_data_pca = pca.fit_transform(output_feature)
-    # 创建3D图
+    # Create 3D plot
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
     if c is None:
         ax.scatter(reduced_data_pca[:, 0], reduced_data_pca[:, 1], reduced_data_pca[:, 2], alpha=0.7,s=4)
     else:
         ax.scatter(reduced_data_pca[:, 0], reduced_data_pca[:, 1], reduced_data_pca[:, 2], alpha=0.7,s=4,c=c)
-    # 设置标签和标题
+    # Set labels and title
     ax.set_xlabel("pca Component 1")
     ax.set_ylabel("pca Component 2")
     ax.set_zlabel("pca Component 3")
@@ -148,17 +148,17 @@ def feature_analyse(origin_stensor,noise_stensor,encoder):
     encoded_sampled_feature = encoder(sampled_noise_stensor).F
     test_pca_2d(encoded_sampled_feature,'test/_vis/noise_sampled_feature.png')
 
-"""
-# 数据预处理
-# 模型需要处理ME.SparseTensor数据类型
-# 将数据分布归一化到[-1,1],再经过采样得到整形数据
-# test_sor
-from test.tools import SORDefense
-sor = SORDefense(k=3, alpha=2)
-sor_noise_pc = sor(noise_batch_pc)
-noise_batch_sor = torch.cat(sor_noise_pc, dim=0)
-clean_batch_pc = torch.cat(tuple(clean_batch_pc), dim=0)  
-"""
+    """
+    # Data preprocessing
+    # The model expects ME.SparseTensor inputs
+    # Normalize distribution to [-1,1], then quantize
+    # test_sor
+    from test.tools import SORDefense
+    sor = SORDefense(k=3, alpha=2)
+    sor_noise_pc = sor(noise_batch_pc)
+    noise_batch_sor = torch.cat(sor_noise_pc, dim=0)
+    clean_batch_pc = torch.cat(tuple(clean_batch_pc), dim=0)  
+    """
 
 class KLdivLoss(nn.Module):
     def __init__(self):
@@ -327,7 +327,7 @@ class RegChamferLoss(nn.Module):
         self.repulsion_loss = RepulsionLoss(radius=self.repulsion_radius, h=self.repulsion_h)
 
     def forward(self, output, target):
-        # 计算 Chamfer 距离损失
+        # Compute Chamfer distance loss
         clean_batch_pc, _ = batch_point_clouds(target, num_pts=self.chamfer_points)   
         noise_batch_pc, _ = batch_point_clouds(output, num_pts=self.chamfer_points)
         chamfer_loss = chamfer_distance_batch(clean_batch_pc, noise_batch_pc) * self.chamfer_eta
@@ -337,14 +337,14 @@ class RegChamferLoss(nn.Module):
         repulsion_loss = self.repulsion_loss.get_repulsion_loss(noise_batch_pc)
         rep_loss = torch.mean(repulsion_loss)
 
-        # 组合总损失
+        # Combine losses into total loss
         total_loss = chamfer_loss * self.chamfer_eta + \
             rep_loss * self.repulsion_eta + \
             reg_loss * self.reg_eta
 
         return total_loss
 
-# 定义损失函数
+# Define loss function
 criterion = RegChamferLoss(
     reg_eta=recovery_setting_dict['reg_eta'],
     chamfer_points=recovery_setting_dict['chamfer_points'],
@@ -360,8 +360,8 @@ def augmentPCD(pc: torch.Tensor) -> torch.Tensor:
     return aug_pc, indicies
 
 def train_model():
-    # 测试选取一个场景的点云进行恢复
-    # prepare pts scene
+    # Test: select a single scene for recovery
+    # Prepare points scene
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     config = 'configs/defense/warmup/lidar2kitti_chamfer_update.yaml'
     config = get_config(config)
@@ -371,7 +371,7 @@ def train_model():
     # ckpt = torch.load('decoder-epoch19-l2.pth', map_location=torch.device('cpu'))
     # decoder.load_state_dict(ckpt,strict=True)
     
-    # 初始化模型参数
+    # Initialize model parameters
     for param in decoder.parameters():
         if param.requires_grad:
             if len(param.shape) > 1:  # 权重参数
@@ -382,17 +382,17 @@ def train_model():
 
     clean_coordinates = noiseLidarTrainDataset[0]['clean_coordinates'].float()
     noise_coordinates = noiseLidarTrainDataset[0]['noise_coordinates'].float()
-    # 生成高斯噪声,均值为0,方差为1,并向下取整
+    # Generate Gaussian noise with mean 0 and std 1 (examples)
     # noise = torch.randint(0, 2, (clean_coordinates.size(0), clean_coordinates.size(1)))
     # noise = torch.randn(clean_coordinates.size(0),clean_coordinates.size(1))*0.33
     # noise_coordinates = torch.add(noise, clean_coordinates).float()
     # noise_coordinates = torch.from_numpy(clean_coordinates.numpy())
 
-    # 将数据移动到cuda上
+    # Move tensors to CUDA
     encoder = encoder.to(device)
     decoder = decoder.to(device)
 
-    # 设置训练参数
+    # Set training hyperparameters
     iters = recovery_setting_dict['iters']
     num_epochs = recovery_setting_dict['epoch']
     lr = recovery_setting_dict['lr']
@@ -403,14 +403,14 @@ def train_model():
     # optimizer = torch.optim.Adam(decoder.parameters(),lr=lr)
     # torch.nn.utils.clip_grad_norm_(decoder.parameters(), max_norm=1.0)
 
-    # 创建循环学习率调度器
+    # Create cyclic LR scheduler (optional)
     # scheduler = CosineAnnealingLR(optimizer, T_max=iters // 2, eta_min=1e-3)
     # CosineAnnealingLR调度器
     # scheduler = CosineAnnealingLR(optimizer,T_max=iters,eta_min=1e-4)
     decoder.train()
     encoder.eval()
 
-    # save noise pcd and recovery pcd
+    # Save noisy and clean point clouds
    
     pcd_noise = o3d.geometry.PointCloud()
     pcd_noise.points = o3d.utility.Vector3dVector(noise_coordinates)
@@ -419,7 +419,7 @@ def train_model():
     o3d.io.write_point_cloud(f'{save_dir}/_noise_pc_origin.ply', pcd_noise)
     o3d.io.write_point_cloud(f'{save_dir}/_clean_pc_origin.ply', pcd_clean)
 
-    # 加入一致性损失，恢复点云和原始点云数据特征空间保持保持一致性
+    # Add consistency loss to align features between recovered and clean point clouds
     clean_pc = clean_coordinates.to(device).float()
     noise_pc = noise_coordinates.to(device).float()
     recovery_eta = None
@@ -433,13 +433,13 @@ def train_model():
 
             with tqdm(range(iters), desc='Training Iterations', total=iters) as pbar:
                 for i in pbar:
-                    # 匹配clean_pc and noise_pc
+                    # Match clean_pc and noise_pc
                     noise_pc, sample_idx = ME.utils.sparse_quantize(
                         coordinates=noise_pc,
                         quantization_size=1,
                         return_index=True
                     )
-                    # resize clean pc with noise pc
+                    # Resize clean pc with noise pc
                     clean_pc = clean_pc[sample_idx].to(device)
                     noise_pc = noise_pc.to(device)
 
@@ -457,7 +457,7 @@ def train_model():
                         encoded_noise_feature = encoder(noise_stensor).F
                         encoded_clean_feature = encoder(clean_stensor).F
 
-                    # construct decoder input stensor
+                    # Construct decoder input sparse tensor
                     decoder_stensor = ME.SparseTensor(coordinates=noise_stensor.coordinates, features=encoded_noise_feature)
 
                     recovery_eta = decoder(decoder_stensor).F
@@ -465,33 +465,33 @@ def train_model():
                     clean_pc = clean_pc[:, 1:]
                     noise_pc = noise_pc[:, 1:]
 
-                    # batch and calculate loss
+                    # Batch and calculate loss
                     # clean_batch_pc, _ = batch_point_clouds(clean_pc, num_pts=4096 * 2)
                     # noise_batch_pc, _ = batch_point_clouds(recovery_eta, num_pts=4096 * 2)
                     # recovery_loss = chamfer_distance_batch(clean_batch_pc, noise_batch_pc)
                     loss = criterion(recovery_eta,clean_pc)
 
-                    # 衡量恢复损失
+                    # Measure recovery loss (example placeholder)
                     # loss = recovery_coff * recovery_loss
 
                     loss.backward()
-                    # 更新参数
+                    # Update parameters
                     optimizer.step()
                     # scheduler.step()
 
-                    # 实时更新 tqdm 进度条的后缀
+                    # Update tqdm postfix in real-time
                     pbar.set_postfix(dict(Loss=loss.item(),epoch=epoch), refresh=False)  # 添加 refresh=False 以防止频繁刷新
 
                     # if i % 100 == 0:
                     #     loss_dict['cost'].append(loss.item())
 
-                    # 每次循环结束后清理缓存和释放显存
+                    # Clear cache and free memory each iteration
                     torch.cuda.empty_cache()
                     noise_pc = noise_pc.detach()
                     clean_pc = clean_pc.detach()
 
             torch.cuda.empty_cache()
-            # save recovery point cloud
+            # Save recovered point cloud
             if epoch%4==0:
                 pcd_recovery = o3d.geometry.PointCloud()
                 pcd_recovery.points = o3d.utility.Vector3dVector(recovery_eta.detach().cpu().numpy())
@@ -518,7 +518,7 @@ class CoordCoffScheduler:
 """
 
 if __name__== '__main__':
-    # 确保实验可重复
+    # Ensure experiment reproducibility
     import os
     os.environ['PYTHONHASHSEED'] = '1234'
     np.random.seed(1234)

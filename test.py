@@ -20,22 +20,22 @@ class TestMyFunctions(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        # 初始化配置和随机种子，只执行一次
+        # Initialize config and random seeds (run once)
         args = parser.parse_args()
         cls.config = get_config(args.config_file)
         os.environ['PYTHONHASHSEED'] = str(cls.config.pipeline.seed)
         np.random.seed(cls.config.pipeline.seed)
         torch.manual_seed(cls.config.pipeline.seed)
         torch.cuda.manual_seed(cls.config.pipeline.seed)
-        # 注册中断信号处理函数
+        # Register interrupt signal handler
         signal.signal(signal.SIGINT, cls.cleanup)
 
     def setUp(self) -> None:
         return super().setUp()
 
     def tearDown(self) -> None:
-        # 每个测试方法执行后运行的代码
-        torch.cuda.empty_cache() # 清空GPU显存
+        # Run after each test method
+        torch.cuda.empty_cache() # Clear GPU memory
 
     @classmethod
     def cleanup(cls,signum,frame):

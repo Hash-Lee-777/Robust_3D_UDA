@@ -3,6 +3,7 @@
 **Code status:** 🚧 *Work in Progress.* We are actively organizing scripts, configs, and checkpoints. Interfaces may change.
 
 ## 1. Overview
+![Pipeline](assets/pipeline.png)
 
 This repository implements our RA-L work on **robust unsupervised domain adaptation (UDA) for 3D point cloud semantic segmentation when the source domain is adversarially corrupted**. We introduce:
 
@@ -12,7 +13,7 @@ This repository implements our RA-L work on **robust unsupervised domain adaptat
   2. **Probabilistic Decoder + HNPU** to refine geometry and update pseudo-labels via high-confidence neighborhood aggregation, used with a teacher–student consistency scheme.
 
 We observe consistent mIoU gains over strong UDA baselines (e.g., CosMix/T-UDA) on **SynLiDAR → SemanticKITTI/SemanticPOSS** and **SemanticKITTI → nuScenes/Waymo**, even when the source is attacked.
-![Pipeline](assets/pipeline.png)
+
 ---
 
 ## 2. Environment Setup
